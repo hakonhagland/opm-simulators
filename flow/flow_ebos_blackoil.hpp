@@ -21,10 +21,14 @@
 #include <opm/parser/eclipse/EclipseState/EclipseState.hpp>
 #include <opm/parser/eclipse/EclipseState/Schedule/Schedule.hpp>
 #include <opm/parser/eclipse/EclipseState/SummaryConfig/SummaryConfig.hpp>
+#include <opm/simulators/flow/SimulatorFullyImplicitBlackoilEbos.hpp>
+#include <opm/simulators/flow/FlowMainEbos.hpp>
 
 namespace Opm {
 void flowEbosBlackoilSetDeck(double setupTime, Deck &deck, EclipseState& eclState, Schedule& schedule, SummaryConfig& summaryConfig);
 int flowEbosBlackoilMain(int argc, char** argv);
+int flowEbosBlackoilMain_step(int argc, char** argv);
+std::unique_ptr<Opm::FlowMainEbos<TTAG(EclFlowProblem)>> flowEbosBlackoilMain_init(int argc, char** argv);
 }
 
 #endif // FLOW_EBOS_BLACKOIL_HPP

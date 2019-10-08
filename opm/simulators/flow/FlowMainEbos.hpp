@@ -1,3 +1,8 @@
+#ifndef MYDEBUG
+#define MYDEBUG(msg)                                   \
+    std::cout << "DEBUG: " << __FILE__ << ":" << __LINE__   \
+    << " " << msg << '\n'
+#endif
 /*
   Copyright 2013, 2014, 2015 SINTEF ICT, Applied Mathematics.
   Copyright 2014 Dr. Blatt - HPC-Simulation-Software & Services
@@ -207,6 +212,135 @@ namespace Opm
             std::cout << "*          For more information, see https://opm-project.org         *\n";
             std::cout << "*                                                                    *\n";
             std::cout << "**********************************************************************\n\n";
+        }
+
+        /// This is the main function of Flow.  It runs a complete simulation with the
+        /// given grid and simulator classes, based on the user-specified command-line
+        /// input.
+        int execute_init_step(int argc, char** argv)
+        {
+            try {
+                // deal with some administrative boilerplate
+
+                int status = setupParameters_(argc, argv);
+                if (status)
+                    return status;
+
+                setupParallelism();
+                setupOutput();
+                setupEbosSimulator();
+                setupLogging();
+                int unknownKeyWords = printPRTHeader();
+#if HAVE_MPI
+                int globalUnknownKeyWords;
+                MPI_Allreduce(&unknownKeyWords,  &globalUnknownKeyWords, 1, MPI_INT,  MPI_SUM, MPI_COMM_WORLD);
+                unknownKeyWords = globalUnknownKeyWords;
+#endif
+                if ( unknownKeyWords )
+                {
+                    if ( output_cout_ )
+                    {
+                        std::string msg = "Aborting simulation due to unknown "
+                            "parameters. Please query \"flow --help\" for "
+                            "supported command line parameters.";
+                        if (OpmLog::hasBackend("STREAMLOG"))
+                        {
+                            OpmLog::error(msg);
+                        }
+                        else {
+                            std::cerr << msg << std::endl;
+                        }
+                    }
+
+#if HAVE_MPI
+                    MPI_Finalize();
+#endif
+                    return EXIT_FAILURE;
+                }
+                runDiagnostics();
+                createSimulator();
+                runSimulator_init();
+                return EXIT_SUCCESS;
+            }
+            catch (const std::exception& e) {
+                std::ostringstream message;
+                message  << "Program threw an exception: " << e.what();
+
+                if (output_cout_) {
+                    // in some cases exceptions are thrown before the logging system is set
+                    // up.
+                    if (OpmLog::hasBackend("STREAMLOG")) {
+                        OpmLog::error(message.str());
+                    }
+                    else {
+                        std::cout << message.str() << "\n";
+                    }
+                }
+
+                return EXIT_FAILURE;
+            }
+        }
+        
+        /// This is the main function of Flow.  It runs a complete simulation with the
+        /// given grid and simulator classes, based on the user-specified command-line
+        /// input.
+        int execute_last_step()
+        {
+            try {
+                // clean up
+                runSimulator_last_step();
+                mergeParallelLogFiles();
+
+                return EXIT_SUCCESS;
+            }
+            catch (const std::exception& e) {
+                std::ostringstream message;
+                message  << "Program threw an exception: " << e.what();
+
+                if (output_cout_) {
+                    // in some cases exceptions are thrown before the logging system is set
+                    // up.
+                    if (OpmLog::hasBackend("STREAMLOG")) {
+                        OpmLog::error(message.str());
+                    }
+                    else {
+                        std::cout << message.str() << "\n";
+                    }
+                }
+                return EXIT_FAILURE;
+            }
+        }
+
+        /// This is the main function of Flow.  It runs a complete simulation with the
+        /// given grid and simulator classes, based on the user-specified command-line
+        /// input.
+        int execute_step()
+        {
+            try {
+
+                // do the actual work
+                if (!runSimulator_step()) {
+                    throw std::runtime_error("End of simulation reached");
+                }
+                return EXIT_SUCCESS;
+            }
+            catch (const std::exception& e) {
+                std::ostringstream message;
+                message  << "Program threw an exception: " << e.what();
+
+                if (output_cout_) {
+                    // in some cases exceptions are thrown before the logging system is set
+                    // up.
+                    if (OpmLog::hasBackend("STREAMLOG")) {
+                        OpmLog::error(message.str());
+                    }
+                    else {
+                        std::cout << message.str() << "\n";
+                    }
+                }
+
+                return EXIT_FAILURE;
+            }
         }
 
         /// This is the main function of Flow.  It runs a complete simulation with the
@@ -553,6 +687,84 @@ namespace Opm
         }
 
         // Run the simulator.
+        void runSimulator_last_step()
+        {
+            auto& ioConfig = eclState().getIOConfig();
+
+            if (!ioConfig.initOnly()) {
+                SimulatorReport successReport = simulator_->run_last_step();
+                SimulatorReport failureReport = simulator_->failureReport();
+                if (output_cout_) {
+                    std::ostringstream ss;
+                    ss << "\n\n================    End of simulation     ===============\n\n";
+                    successReport.reportFullyImplicit(ss, &failureReport);
+                    OpmLog::info(ss.str());
+                }
+            } else {
+                if (output_cout_) {
+                    std::cout << "\n\n================ Simulation turned off ===============\n" << std::flush;
+                }
+
+            }
+        }
+        // Run the simulator.
+        bool runSimulator_step()
+        {
+            auto& ioConfig = eclState().getIOConfig();
+
+            if (!ioConfig.initOnly()) {
+                return simulator_->run_step(*step_timer_);
+            }
+            else {
+                if (output_cout_) {
+                    std::cout << "\n\n================ Simulation turned off ===============\n" << std::flush;
+                }
+                return true;
+            }
+        }
+
+        // Run the simulator.
+        void runSimulator_init()
+        {
+            const auto& schedule = this->schedule();
+            const auto& timeMap = schedule.getTimeMap();
+            auto& ioConfig = eclState().getIOConfig();
+            //step_timer_ = std::unique_ptr<SimulatorTimer> (new SimulatorTimer());
+            step_timer_ = std::make_unique<SimulatorTimer>();
+
+            // initialize variables
+            const auto& initConfig = eclState().getInitConfig();
+            step_timer_->init(timeMap, (size_t)initConfig.getRestartStep());
+
+            if (output_cout_) {
+                std::ostringstream oss;
+
+                // This allows a user to catch typos and misunderstandings in the
+                // use of simulator parameters.
+                if (Ewoms::Parameters::printUnused<TypeTag>(oss)) {
+                    std::cout << "-----------------   Unrecognized parameters:   -----------------\n";
+                    std::cout << oss.str();
+                    std::cout << "----------------------------------------------------------------" << std::endl;
+                }
+            }
+
+            if (!ioConfig.initOnly()) {
+                if (output_cout_) {
+                    std::string msg;
+                    msg = "\n\n================ Starting main simulation loop ===============\n";
+                    OpmLog::info(msg);
+                }
+                simulator_->run_init(*step_timer_);
+
+            } else {
+                if (output_cout_) {
+                    std::cout << "\n\n================ Simulation turned off ===============\n" << std::flush;
+                }
+
+            }
+        }
+
+        // Run the simulator.
         void runSimulator()
         {
             const auto& schedule = this->schedule();
@@ -632,6 +844,7 @@ namespace Opm
         boost::any parallel_information_;
         std::unique_ptr<Simulator> simulator_;
         std::string logFile_;
+        std::unique_ptr<SimulatorTimer> step_timer_;
     };
 } // namespace Opm
 

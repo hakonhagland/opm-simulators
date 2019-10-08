@@ -63,4 +63,20 @@ int flowEbosBlackoilMain(int argc, char** argv)
     return mainfunc.execute(argc, argv);
 }
 
+// ----------------- Main program -----------------
+std::unique_ptr<Opm::FlowMainEbos<TTAG(EclFlowProblem)>> flowEbosBlackoilMain_init(int argc, char** argv)
+{
+    // we always want to use the default locale, and thus spare us the trouble
+    // with incorrect locale settings.
+    Opm::resetLocale();
+
+#if HAVE_DUNE_FEM
+    Dune::Fem::MPIManager::initialize(argc, argv);
+#else
+    Dune::MPIHelper::instance(argc, argv);
+#endif
+
+    return std::make_unique<Opm::FlowMainEbos<TTAG(EclFlowProblem)>>();
+}
+
 }
