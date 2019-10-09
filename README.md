@@ -1,84 +1,104 @@
-# Open Porous Media Simulators and Automatic Differentiation Library
+# Python wrappers for the OPM flow simulator
 
-CONTENT
--------
+- This repository is a fork
+of [opm-simulators](https://github.com/OPM/opm-simulators) for testing out python wrappers for the flow simulator.
+- OPM flow simulator is written in C++, see
+[the official README.md](https://github.com/OPM/opm-simulators/blob/master/README.md) for
+information about the OPM project. 
+- The Python-to-C++ interface is written using
+  the [pybind11](https://github.com/pybind/pybind11) C++ library.
+## Installation
 
-opm-simulators contains simulator programs for porous media flow. It
-also contains a small library for automatic differentiation
-built on the Eigen linear algebra package which is used by many of the
-simulators to handle the building of Jacobians. The most important
-(and tested) part is the Flow reservoir simulator, which is a fully
-implicit black-oil simulator that also supports solvent and polymer
-options. It is built using automatic differentiation, using the local
-AD class Evaluation from opm-material.
+### Install libecl
 
-LICENSE
--------
+Install libecl, see [Installing libecl](https://opm-project.org/?page_id=239) at the
+OPM project page. For example,
 
-The library is distributed under the GNU General Public License,
-version 3 or later (GPLv3+).
+```
+git clone https://github.com/Statoil/libecl.git
+cd libecl
+mkdir build
+cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=/opt/libecl
+make
+sudo make install
+# NOTE: you may want to add this statement to you ~/.bashrc file:
+export ecl_DIR=/opt/libecl/share/cmake/ecl
+```
+
+### Install DUNE modules
+
+Install DUNE core modules (`dune-common`, `dune-geometry`,
+`dune-istl`, `dune-grid`), see
+the 
+[OPM prerequisites page](https://opm-project.org/?page_id=239). For
+example, for Ubuntu:
+
+```
+# Make sure we have updated URLs to packages etc.
+sudo apt-get update -y
+
+# For server edition of Ubuntu add-apt-repository depends on
+sudo apt-get install -y software-properties-common
+
+# Add PPA for OPM packages
+sudo add-apt-repository -y ppa:opm/ppa
+sudo apt-get update -y
+
+# Packages necessary for building
+sudo apt-get install -y build-essential gfortran pkg-config cmake
+
+# Packages necessary for documentation
+sudo apt-get install -y doxygen ghostscript texlive-latex-recommended pgf gnuplot
+
+# Packages necessary for version control
+sudo apt-get install -y git-core
+
+# MPI for parallel programs
+sudo apt-get install -y mpi-default-dev
+# Prerequisite libraries
+sudo apt-get install -y libblas-dev libboost-all-dev \
+  libsuperlu-dev libsuitesparse-dev libtrilinos-zoltan-dev
+
+# Parts of Dune needed
+sudo apt-get install libdune-common-dev libdune-geometry-dev \
+  libdune-istl-dev libdune-grid-dev
+
+```
+### Install OPM modules (including this repository)
+
+```
+# NOTE: remember to set the ecl_DIR environment variable as described above,
+#   variable before proceeding
+#
+mkdir opm
+cd opm
+export OPM_INSTALL_DIR="$PWD"
+# clone this repository
+git clone https://github.com/hakonhagland/opm-simulators
+# Get the installation script
+cp opm-simulators/python/bin/install_and_build_opm_modules.sh .
+# Run the script to clone and build all the OPM modules
+./install_and_build_opm_modules.sh
+```
+
+# Testing the installation
+
+```
+SUNBEAM_PATH=$OPM_INSTALL_DIR/opm-common/build/python
+SIMULATORS_PATH=$OPM_INSTALL_DIR/opm-simulators/build/python
+export PYTHONPATH=${PYTHONPATH}:${SUNBEAM_PATH}:${SIMULATORS_PATH}
+cd $OPM_INSTALL_DIR/opm-simulators/python/test_imp
+python3 run.py
+```
+
+# Compiling
+
+If you make changes to the code in `opm-simulators`, you can recompile
+the Python `simulators` module by doing:
+```
+cd $OPM_INSTALL_DIR/opm-simulators/build
+make -j$(nproc)
+```
 
 
-PLATFORMS
----------
-
-The opm-simulators module is designed to run on Linux platforms. It is
-also regularly run on Mac OS X. No efforts have been made to ensure
-that the code will compile and run on windows platforms.
-
-
-REQUIREMENTS
-------------
-
-opm-simulators requires several other OPM modules, see
-http://opm-project.org/?page_id=274. In addition, opm-simulators
-requires the Dune module dune-istl and Eigen, version 3.1 (has not been
-tested with later versions).
-
-
-DOWNLOADING
------------
-
-For a read-only download:
-git clone git://github.com/OPM/opm-simulators.git
-
-If you want to contribute, fork OPM/opm-simulators on github.
-
-
-BUILDING
---------
-
-See build instructions at http://opm-project.org/?page_id=36
-
-
-DOCUMENTATION
--------------
-
-Efforts have been made to document the code with Doxygen.
-In order to build the documentation, enter the command
-
- make doc
-
-in the topmost directory. The class AutoDiffBlock is the most
-important and most well-documented.
-
-
-REPORTING ISSUES
-----------------
-
-Issues can be reported in the Git issue tracker online at:
-
-    https://github.com/OPM/opm-simulators/issues
-
-To help diagnose build errors, please provide a link to a build log together
-with the issue description.
-
-You can capture such a log from the build using the `script' utility, e.g.:
-
-    LOGFILE=$(date +%Y%m%d-%H%M-)build.log ;
-    cmake -E cmake_echo_color --cyan --bold "Log file: $LOGFILE" ;
-    script -q $LOGFILE -c 'cmake ../opm-core -DCMAKE_BUILD_TYPE=Debug' &&
-    script -q $LOGFILE -a -c 'ionice nice make -j 4 -l 3' ||
-    cat CMakeCache.txt CMakeFiles/CMake*.log >> $LOGFILE
-
-The resulting file can be uploaded to for instance gist.github.com.

@@ -219,6 +219,7 @@ public:
             return EXIT_FAILURE;
         }
         hasRunInit_ = true;
+        return EXIT_SUCCESS;
     }
 
     int step()
