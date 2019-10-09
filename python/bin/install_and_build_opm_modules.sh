@@ -90,7 +90,7 @@ if [[ -z $ecl_DIR ]] ; then
     exit 1
 fi
     
-# Run these commands in subshells to keep current directory the same
+# Run these commands in subshells to keep current directory fixed
 (clone_and_build_jms_opm_common 2>&1 | tee -a $log_fn)
 (clone_and_build_specific_commit_master \
      opm-grid d6e4ba1f290ad92632769b306ac438851283d7da 2>&1 | tee -a $log_fn)
@@ -100,7 +100,7 @@ fi
 (clone_and_build_specific_commit_master \
      opm-models 1452b575104b50b7f1bd6fce99d34a50e65a39bb 2>&1 | tee -a $log_fn)
 # (clone_and_build_jms_opm_simulators 2>&1 | tee -a $log_fn)
-(clone_and_build_hakonh_opm_simulators 2>&1 | tee -a $log_fn)
+(build_hakonh_opm_simulators 2>&1 | tee -a $log_fn)
 (clone_opm_data 2>&1 | tee -a $log_fn)
 
 # Add the path to the bin folder
