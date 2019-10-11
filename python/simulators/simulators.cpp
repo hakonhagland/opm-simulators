@@ -1,9 +1,3 @@
-#ifndef MYDEBUG
-#define MYDEBUG(msg)                                   \
-    std::cout << "DEBUG: " << __FILE__ << ":" << __LINE__   \
-    << " " << msg << '\n';
-#endif
-
 #include "config.h"
 #include <flow/flow_ebos_blackoil.hpp>
 

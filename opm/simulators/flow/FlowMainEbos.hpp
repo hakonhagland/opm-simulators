@@ -1,8 +1,3 @@
-#ifndef MYDEBUG
-#define MYDEBUG(msg)                                   \
-    std::cout << "DEBUG: " << __FILE__ << ":" << __LINE__   \
-    << " " << msg << '\n'
-#endif
 /*
   Copyright 2013, 2014, 2015 SINTEF ICT, Applied Mathematics.
   Copyright 2014 Dr. Blatt - HPC-Simulation-Software & Services

@@ -128,7 +128,7 @@ public:
     /// \param[in,out] timer       governs the requested reporting timesteps
     /// \param[in,out] state       state of reservoir: pressure, fluxes
     /// \return                    simulation report, with timing data
-    SimulatorReport run_init(SimulatorTimer& timer)
+    void run_init(SimulatorTimer& timer)
     {
         failureReport_ = SimulatorReport();
 
